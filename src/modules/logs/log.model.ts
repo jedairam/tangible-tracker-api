@@ -11,6 +11,7 @@ export type LogAction = (typeof LOG_ACTIONS)[keyof typeof LOG_ACTIONS];
 export interface Log {
   id: string;
   taskId: string;
+  taskCode: string;
   action: string;
   detail: string;
   createdAt: Date;

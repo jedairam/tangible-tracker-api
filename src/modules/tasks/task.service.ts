@@ -20,6 +20,7 @@ export class TaskService {
     //Registrar el log de la creación de la tarea
     await this.logService.create({
       taskId: task.id,
+      taskCode: task.code,
       action: LOG_ACTIONS.TASK_CREATED,
       detail: `Tarea "${task.title}" creada`,
     });
@@ -57,6 +58,7 @@ export class TaskService {
     if (data.status !== undefined && data.status !== existing.status) {
       await this.logService.create({
         taskId: task.id,
+        taskCode: task.code,
         action: LOG_ACTIONS.STATUS_CHANGED,
         detail: `Estado cambiado de ${TASK_STATUS_LABELS[existing.status]} a ${TASK_STATUS_LABELS[task.status]}`,
       });
@@ -64,6 +66,7 @@ export class TaskService {
       //Registrar el log de la actualización de la tarea
       await this.logService.create({
         taskId: task.id,
+        taskCode: task.code,
         action: LOG_ACTIONS.TASK_UPDATED,
         detail: `Tarea "${task.title}" actualizada`,
       });
@@ -85,6 +88,7 @@ export class TaskService {
     //Registrar el log de la eliminación de la tarea
     await this.logService.create({
       taskId: id,
+      taskCode: existing.code,
       action: LOG_ACTIONS.TASK_DELETED,
       detail: `Tarea "${existing.title}" eliminada`,
     });

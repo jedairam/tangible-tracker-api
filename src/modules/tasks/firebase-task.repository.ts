@@ -2,6 +2,7 @@ import { FieldValue, Timestamp, type DocumentData } from 'firebase-admin/firesto
 import { getFirestore } from '@/config/firebase.js';
 import { paginateByCreatedAt } from '@/shared/utils/pagination.utils.js';
 import { toDate } from '@/shared/utils/date.utils.js';
+import { nextTaskCode, resolveTaskCode } from './task-code.utils.js';
 import type { CreateTaskDto, UpdateTaskDto } from './task.dto.js';
 import type { Task, TaskPriority, TaskStatus } from './task.model.js';
 import type { TaskRepository } from './task.repository.js';
@@ -11,8 +12,11 @@ import type { PaginationQuery } from '@/shared/types/pagination.types.js';
 const COLLECTION = 'tasks';
 
 function docToTask(id: string, data: DocumentData): Task {
+  const code = resolveTaskCode(id, data.code as string | undefined);
+
   return {
     id,
+    code,
     title: data.title as string,
     description: data.description as string,
     status: data.status as TaskStatus,
@@ -35,6 +39,10 @@ export class FirebaseTaskRepository implements TaskRepository {
 
   //Obtener una tarea por su ID
   async findById(id: string): Promise<Task | null> {
+    if (id === '_counter') {
+      return null;
+    }
+
     const doc = await this.collection.doc(id).get();
 
     if (!doc.exists) {
@@ -46,7 +54,10 @@ export class FirebaseTaskRepository implements TaskRepository {
 
   //Crear una nueva tarea
   async create(data: CreateTaskDto): Promise<Task> {
+    const code = await nextTaskCode(this.collection);
+
     const docRef = await this.collection.add({
+      code,
       title: data.title,
       description: data.description,
       status: data.status,
