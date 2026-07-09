@@ -1,0 +1,498 @@
+openapi: 3.0.3
+info:
+  title: Tangible Tracker API
+  description: |
+    API REST para la gestión interna de tareas del equipo de desarrollo.
+    Backend construido con Node.js, Express, TypeScript y Firebase Firestore.
+
+    ## Tiempo real
+    El endpoint `GET /api/logs/stream` usa Server-Sent Events (SSE).
+    En el frontend, conéctate con `EventSource`.
+  version: 1.0.0
+  contact:
+    name: Tangible Immersive
+
+servers:
+  - url: http://localhost:3000
+    description: Desarrollo local
+
+tags:
+  - name: Health
+    description: Estado del servidor y conexión a Firestore
+  - name: Tasks
+    description: CRUD de tareas e incidencias
+  - name: Logs
+    description: Historial de actividad y stream en tiempo real
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      description: Verifica el estado del servidor y la conexión con Firestore.
+      operationId: getHealth
+      responses:
+        '200':
+          description: Servidor y base de datos operativos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthSuccessResponse'
+              example:
+                success: true
+                data:
+                  status: ok
+                  timestamp: '2026-07-09T06:13:48.247Z'
+                  uptime: 57.5
+                  environment: development
+                  database: connected
+        '503':
+          description: Servidor activo pero Firestore desconectado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthSuccessResponse'
+              example:
+                success: true
+                data:
+                  status: degraded
+                  timestamp: '2026-07-09T06:13:48.247Z'
+                  uptime: 57.5
+                  environment: development
+                  database: disconnected
+
+  /api/tasks:
+    get:
+      tags: [Tasks]
+      summary: Listar tareas
+      description: Obtiene todas las tareas ordenadas por fecha de creación (más reciente primero).
+      operationId: listTasks
+      responses:
+        '200':
+          description: Lista de tareas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskListSuccessResponse'
+    post:
+      tags: [Tasks]
+      summary: Crear tarea
+      description: |
+        Crea una nueva tarea. Registra automáticamente un log de actividad.
+        Si no se envían `status` o `priority`, se usan `pending` y `medium`.
+      operationId: createTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaskRequest'
+            example:
+              title: Incidencia login
+              description: Error al iniciar sesión en producción
+              status: pending
+              priority: high
+      responses:
+        '201':
+          description: Tarea creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskSuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/tasks/{id}:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    get:
+      tags: [Tasks]
+      summary: Obtener tarea por ID
+      operationId: getTaskById
+      responses:
+        '200':
+          description: Tarea encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskSuccessResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      tags: [Tasks]
+      summary: Actualizar tarea
+      description: |
+        Actualización parcial (PATCH). Al menos un campo es obligatorio.
+        Registra log de actividad. Si cambia `status`, el log indica "Estado cambiado".
+      operationId: updateTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTaskRequest'
+            examples:
+              cambiarEstado:
+                summary: Cambiar estado
+                value:
+                  status: in_progress
+              actualizarTitulo:
+                summary: Actualizar título
+                value:
+                  title: Incidencia login (en revisión)
+      responses:
+        '200':
+          description: Tarea actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskSuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags: [Tasks]
+      summary: Eliminar tarea
+      description: Elimina la tarea y registra un log de actividad.
+      operationId: deleteTask
+      responses:
+        '200':
+          description: Tarea eliminada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteSuccessResponse'
+              example:
+                success: true
+                data: null
+                message: Tarea eliminada
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/logs:
+    get:
+      tags: [Logs]
+      summary: Listar logs de actividad
+      description: Obtiene el historial de actividad ordenado por fecha (más reciente primero).
+      operationId: listLogs
+      responses:
+        '200':
+          description: Lista de logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogListSuccessResponse'
+              example:
+                success: true
+                data:
+                  - id: abc123
+                    taskId: tjrcxKTo3Lc1C7JSarJd
+                    action: Tarea creada
+                    detail: 'Tarea "Incidencia login" creada'
+                    createdAt: '2026-07-09T06:13:48.502Z'
+                meta:
+                  total: 1
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/logs/stream:
+    get:
+      tags: [Logs]
+      summary: Stream de logs en tiempo real (SSE)
+      description: |
+        Mantiene una conexión abierta y envía cada nuevo log como evento SSE.
+
+        Formato de cada evento:
+        ```
+        data: {"success":true,"data":{"id":"...","taskId":"...","action":"Tarea creada","detail":"...","createdAt":"..."}}
+        ```
+
+        Ejemplo en el navegador:
+        ```js
+        const source = new EventSource('http://localhost:3000/api/logs/stream');
+        source.onmessage = (e) => console.log(JSON.parse(e.data).data);
+        ```
+      operationId: streamLogs
+      responses:
+        '200':
+          description: Stream SSE activo
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                example: |
+                  data: {"success":true,"data":{"id":"RYzk7IiUyySFaHDZT2xj","taskId":"FNtB9PV0m7Y1EUrILY8A","action":"Tarea creada","detail":"Tarea \"Test SSE\" creada","createdAt":"2026-07-09T06:13:57.962Z"}}
+
+components:
+  parameters:
+    TaskId:
+      name: id
+      in: path
+      required: true
+      description: Identificador de la tarea en Firestore
+      schema:
+        type: string
+        minLength: 1
+      example: tjrcxKTo3Lc1C7JSarJd
+
+  responses:
+    BadRequest:
+      description: Error de validación
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              statusCode: 400
+              message: El título es obligatorio
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              statusCode: 404
+              message: Tarea no encontrada
+    InternalServerError:
+      description: Error interno del servidor
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              statusCode: 500
+              message: Error interno del servidor
+
+  schemas:
+    ApiErrorBody:
+      type: object
+      required: [statusCode, message]
+      properties:
+        statusCode:
+          type: integer
+          example: 404
+        message:
+          type: string
+          example: Tarea no encontrada
+
+    ErrorResponse:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          $ref: '#/components/schemas/ApiErrorBody'
+
+    ApiMeta:
+      type: object
+      properties:
+        total:
+          type: integer
+          example: 5
+
+    TaskSuccessResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: '#/components/schemas/Task'
+
+    TaskListSuccessResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+        meta:
+          $ref: '#/components/schemas/ApiMeta'
+
+    LogListSuccessResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Log'
+        meta:
+          $ref: '#/components/schemas/ApiMeta'
+
+    HealthSuccessResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: '#/components/schemas/HealthPayload'
+
+    DeleteSuccessResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          nullable: true
+          example: null
+        message:
+          type: string
+          example: Tarea eliminada
+
+    HealthPayload:
+      type: object
+      required: [status, timestamp, uptime, environment, database]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        timestamp:
+          type: string
+          format: date-time
+        uptime:
+          type: number
+          description: Tiempo activo del proceso en segundos
+        environment:
+          type: string
+          enum: [development, production, test]
+        database:
+          type: string
+          enum: [connected, disconnected]
+
+    TaskStatus:
+      type: string
+      enum: [pending, in_progress, completed, cancelled]
+      description: |
+        Estado de la tarea.
+        - `pending` — pendiente
+        - `in_progress` — en progreso
+        - `completed` — completada
+        - `cancelled` — cancelada
+
+    TaskPriority:
+      type: string
+      enum: [low, medium, high]
+      description: |
+        Prioridad de la tarea.
+        - `low` — baja
+        - `medium` — media
+        - `high` — alta
+
+    Task:
+      type: object
+      required: [id, title, description, status, priority, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          example: tjrcxKTo3Lc1C7JSarJd
+        title:
+          type: string
+          example: Incidencia login
+        description:
+          type: string
+          example: Error al iniciar sesión en producción
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        priority:
+          $ref: '#/components/schemas/TaskPriority'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateTaskRequest:
+      type: object
+      required: [title, description]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          example: Incidencia login
+        description:
+          type: string
+          minLength: 1
+          example: Error al iniciar sesión en producción
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+          default: pending
+        priority:
+          $ref: '#/components/schemas/TaskPriority'
+          default: medium
+
+    UpdateTaskRequest:
+      type: object
+      minProperties: 1
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          minLength: 1
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        priority:
+          $ref: '#/components/schemas/TaskPriority'
+
+    Log:
+      type: object
+      required: [id, taskId, action, detail, createdAt]
+      properties:
+        id:
+          type: string
+          example: RYzk7IiUyySFaHDZT2xj
+        taskId:
+          type: string
+          example: tjrcxKTo3Lc1C7JSarJd
+        action:
+          type: string
+          enum:
+            - Tarea creada
+            - Tarea actualizada
+            - Tarea eliminada
+            - Estado cambiado
+          example: Tarea creada
+        detail:
+          type: string
+          example: 'Tarea "Incidencia login" creada'
+        createdAt:
+          type: string
+          format: date-time
+
