@@ -94,6 +94,7 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY----
 
 ```bash
 yarn install
+yarn test
 ```
 
 ---
@@ -247,7 +248,7 @@ curl -X POST http://localhost:3000/api/tasks \
   -d '{"title":"Incidencia login","description":"Error en producción","status":"pending","priority":"high"}'
 ```
 
-**Respuesta 201:** `{ "success": true, "data": { ...Task } }` con `id`, fechas y campos enviados.
+**Respuesta 201:** `{ "success": true, "data": { ...Task } }` con `id`, `code` (ej. `TAN-1`), fechas y campos enviados.
 
 ---
 
@@ -352,6 +353,7 @@ curl "http://localhost:3000/api/logs?page=1&limit=20"
     {
       "id": "abc123",
       "taskId": "tjrcxKTo3Lc1C7JSarJd",
+      "taskCode": "TAN-1",
       "action": "Tarea creada",
       "detail": "Tarea \"Incidencia login\" creada",
       "createdAt": "2026-07-09T06:13:48.502Z"
@@ -383,7 +385,7 @@ curl -N http://localhost:3000/api/logs/stream
 **Formato de cada evento:**
 
 ```text
-data: {"success":true,"data":{"id":"...","taskId":"...","action":"Tarea creada","detail":"...","createdAt":"..."}}
+data: {"success":true,"data":{"id":"...","taskId":"...","taskCode":"TAN-1","action":"Tarea creada","detail":"...","createdAt":"..."}}
 ```
 
 > En Postman, SSE puede no mostrarse como en el navegador. Usa `curl -N` o `EventSource` en el frontend.
@@ -394,15 +396,18 @@ data: {"success":true,"data":{"id":"...","taskId":"...","action":"Tarea creada",
 
 ### Task
 
-| Campo         | Tipo     | Descripción                   |
-| ------------- | -------- | ----------------------------- |
-| `id`          | string   | ID del documento en Firestore |
-| `title`       | string   | Título                        |
-| `description` | string   | Descripción                   |
-| `status`      | enum     | Estado de la tarea            |
-| `priority`    | enum     | Prioridad                     |
-| `createdAt`   | datetime | Fecha de creación (ISO 8601)  |
-| `updatedAt`   | datetime | Última actualización          |
+| Campo         | Tipo     | Descripción                                      |
+| ------------- | -------- | ------------------------------------------------ |
+| `id`          | string   | ID del documento en Firestore                    |
+| `code`        | string   | Código legible único (ej. `TAN-1`, `TAN-2`)      |
+| `title`       | string   | Título                                           |
+| `description` | string   | Descripción                                      |
+| `status`      | enum     | Estado de la tarea                               |
+| `priority`    | enum     | Prioridad                                        |
+| `createdAt`   | datetime | Fecha de creación (ISO 8601)                     |
+| `updatedAt`   | datetime | Última actualización                             |
+
+> El `code` se genera automáticamente al crear la tarea. El documento `tasks/_counter` en Firestore lleva la secuencia interna.
 
 **Estados (`status`):** `pending`, `in_progress`, `completed`, `cancelled`
 
@@ -410,13 +415,16 @@ data: {"success":true,"data":{"id":"...","taskId":"...","action":"Tarea creada",
 
 ### Log
 
-| Campo       | Tipo     | Descripción                    |
-| ----------- | -------- | ------------------------------ |
-| `id`        | string   | ID del log en Firestore        |
-| `taskId`    | string   | ID de la tarea relacionada     |
-| `action`    | string   | Tipo de acción (en español)    |
-| `detail`    | string   | Descripción legible del evento |
-| `createdAt` | datetime | Fecha del evento               |
+| Campo       | Tipo     | Descripción                                      |
+| ----------- | -------- | ------------------------------------------------ |
+| `id`        | string   | ID del log en Firestore                          |
+| `taskId`    | string   | ID interno de la tarea (Firestore)               |
+| `taskCode`  | string   | Código legible de la tarea (ej. `TAN-1`)         |
+| `action`    | string   | Tipo de acción (en español)                      |
+| `detail`    | string   | Descripción legible del evento                   |
+| `createdAt` | datetime | Fecha del evento                                 |
+
+> `GET /api/logs` siempre devuelve `taskCode`. En logs antiguos sin el campo guardado, la API calcula un fallback desde `taskId`.
 
 ---
 
@@ -501,7 +509,8 @@ src/
 │   │   ├── firebase-task.repository.ts
 │   │   ├── task.schema.ts
 │   │   ├── task.model.ts
-│   │   └── task.dto.ts
+│   │   ├── task.dto.ts
+│   │   └── task-code.utils.ts
 │   └── logs/
 │       ├── log.routes.ts
 │       ├── log.service.ts

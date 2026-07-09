@@ -210,6 +210,7 @@ paths:
                 data:
                   - id: abc123
                     taskId: tjrcxKTo3Lc1C7JSarJd
+                    taskCode: TAN-1
                     action: Tarea creada
                     detail: 'Tarea "Incidencia login" creada'
                     createdAt: '2026-07-09T06:13:48.502Z'
@@ -227,7 +228,7 @@ paths:
 
         Formato de cada evento:
         ```
-        data: {"success":true,"data":{"id":"...","taskId":"...","action":"Tarea creada","detail":"...","createdAt":"..."}}
+        data: {"success":true,"data":{"id":"...","taskId":"...","taskCode":"TAN-1","action":"Tarea creada","detail":"...","createdAt":"..."}}
         ```
 
         Ejemplo en el navegador:
@@ -244,7 +245,7 @@ paths:
               schema:
                 type: string
                 example: |
-                  data: {"success":true,"data":{"id":"RYzk7IiUyySFaHDZT2xj","taskId":"FNtB9PV0m7Y1EUrILY8A","action":"Tarea creada","detail":"Tarea \"Test SSE\" creada","createdAt":"2026-07-09T06:13:57.962Z"}}
+                  data: {"success":true,"data":{"id":"RYzk7IiUyySFaHDZT2xj","taskId":"FNtB9PV0m7Y1EUrILY8A","taskCode":"TAN-1","action":"Tarea creada","detail":"Tarea \"Test SSE\" creada","createdAt":"2026-07-09T06:13:57.962Z"}}
 
 components:
   parameters:
@@ -461,11 +462,15 @@ components:
 
     Task:
       type: object
-      required: [id, title, description, status, priority, createdAt, updatedAt]
+      required: [id, code, title, description, status, priority, createdAt, updatedAt]
       properties:
         id:
           type: string
           example: tjrcxKTo3Lc1C7JSarJd
+        code:
+          type: string
+          description: Código legible único generado al crear la tarea
+          example: TAN-1
         title:
           type: string
           example: Incidencia login
@@ -519,7 +524,7 @@ components:
 
     Log:
       type: object
-      required: [id, taskId, action, detail, createdAt]
+      required: [id, taskId, taskCode, action, detail, createdAt]
       properties:
         id:
           type: string
@@ -527,6 +532,10 @@ components:
         taskId:
           type: string
           example: tjrcxKTo3Lc1C7JSarJd
+        taskCode:
+          type: string
+          description: Código legible de la tarea (TAN-N)
+          example: TAN-1
         action:
           type: string
           enum:
