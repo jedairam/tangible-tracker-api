@@ -1,8 +1,8 @@
 import { Router, type Request, type Response } from 'express';
-import { validateMiddleware } from '../../middlewares/validate.middleware.js';
-import { paginationQuerySchema, type PaginationQueryInput } from '../../shared/schemas/pagination.schema.js';
-import { sendPaginatedList, sendSuccess } from '../../shared/utils/response.utils.js';
-import { logService } from '../logs/log.routes.js';
+import { validateMiddleware } from '@/middlewares/validate.middleware.js';
+import { parsePaginationQuery } from '@/shared/schemas/pagination.schema.js';
+import { sendPaginatedList, sendSuccess } from '@/shared/utils/response.utils.js';
+import { logService } from '@/modules/logs/log.routes.js';
 import { FirebaseTaskRepository } from './firebase-task.repository.js';
 import { TaskService } from './task.service.js';
 import {
@@ -22,9 +22,8 @@ taskRoutes.post('/tasks', validateMiddleware(createTaskSchema), async (req: Requ
   sendSuccess(res, task, 201);
 });
 
-taskRoutes.get('/tasks', validateMiddleware(paginationQuerySchema, 'query'), async (req: Request, res: Response) => {
-  const pagination = req.query as unknown as PaginationQueryInput;
-  const result = await taskService.findAll(pagination);
+taskRoutes.get('/tasks', async (req: Request, res: Response) => {
+  const result = await taskService.findAll(parsePaginationQuery(req.query));
   sendPaginatedList(res, result);
 });
 
