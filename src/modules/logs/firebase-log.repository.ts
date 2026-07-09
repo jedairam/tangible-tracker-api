@@ -1,11 +1,11 @@
 import { FieldValue, Timestamp, type DocumentData } from 'firebase-admin/firestore';
-import { getFirestore } from '../../config/firebase.js';
-import { paginateByCreatedAt } from '../../shared/utils/pagination.utils.js';
-import { toDate } from '../../shared/utils/date.utils.js';
+import { getFirestore } from '@/config/firebase.js';
+import { paginateByCreatedAt } from '@/shared/utils/pagination.utils.js';
+import { toDate } from '@/shared/utils/date.utils.js';
 import type { CreateLogDto } from './log.dto.js';
 import type { Log } from './log.model.js';
 import type { LogRepository } from './log.repository.js';
-import type { PaginationQuery } from '../../shared/types/pagination.types.js';
+import type { PaginationQuery } from '@/shared/types/pagination.types.js';
 
 //Nombre de la colección en Firestore
 const COLLECTION = 'logs';

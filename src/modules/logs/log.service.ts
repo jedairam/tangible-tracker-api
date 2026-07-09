@@ -1,5 +1,5 @@
 import type { Response } from 'express';
-import type { PaginatedResult, PaginationQuery } from '../../shared/types/pagination.types.js';
+import type { PaginatedResult, PaginationQuery } from '@/shared/types/pagination.types.js';
 import { emitLogCreated, LOG_CREATED_EVENT, logEvents } from './log.events.js';
 import type { CreateLogDto } from './log.dto.js';
 import type { Log } from './log.model.js';

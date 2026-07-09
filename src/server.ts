@@ -1,6 +1,6 @@
-import { createApp } from './app.js';
-import { env } from './config/env.js';
-import { initFirebase } from './config/firebase.js';
+import { createApp } from '@/app.js';
+import { env } from '@/config/env.js';
+import { initFirebase } from '@/config/firebase.js';
 
 async function bootstrap() {
   initFirebase();

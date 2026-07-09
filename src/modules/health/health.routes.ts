@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { checkFirestoreConnection } from '../../config/firebase.js';
-import { env } from '../../config/env.js';
-import { sendSuccess } from '../../shared/utils/response.utils.js';
+import { checkFirestoreConnection } from '@/config/firebase.js';
+import { env } from '@/config/env.js';
+import { sendSuccess } from '@/shared/utils/response.utils.js';
 
 export const healthRoutes = Router();
 

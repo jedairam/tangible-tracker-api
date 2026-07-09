@@ -1,6 +1,6 @@
 import type { Response } from 'express';
-import type { ApiMeta, ApiSuccessResponse } from '../types/api-response.types.js';
-import type { PaginatedResult } from '../types/pagination.types.js';
+import type { ApiMeta, ApiSuccessResponse } from '@/shared/types/api-response.types.js';
+import type { PaginatedResult } from '@/shared/types/pagination.types.js';
 
 //Contrato estándar para las respuestas de la API
 

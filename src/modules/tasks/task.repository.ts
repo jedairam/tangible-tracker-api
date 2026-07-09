@@ -1,6 +1,6 @@
 import type { CreateTaskDto, UpdateTaskDto } from './task.dto.js';
 import type { Task } from './task.model.js';
-import type { PaginatedResult, PaginationQuery } from '../../shared/types/pagination.types.js';
+import type { PaginatedResult, PaginationQuery } from '@/shared/types/pagination.types.js';
 
 //Interfaz para el repositorio de tareas
 export interface TaskRepository {

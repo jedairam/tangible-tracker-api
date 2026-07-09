@@ -1,11 +1,11 @@
 import { FieldValue, Timestamp, type DocumentData } from 'firebase-admin/firestore';
-import { getFirestore } from '../../config/firebase.js';
-import { paginateByCreatedAt } from '../../shared/utils/pagination.utils.js';
-import { toDate } from '../../shared/utils/date.utils.js';
+import { getFirestore } from '@/config/firebase.js';
+import { paginateByCreatedAt } from '@/shared/utils/pagination.utils.js';
+import { toDate } from '@/shared/utils/date.utils.js';
 import type { CreateTaskDto, UpdateTaskDto } from './task.dto.js';
 import type { Task, TaskPriority, TaskStatus } from './task.model.js';
 import type { TaskRepository } from './task.repository.js';
-import type { PaginationQuery } from '../../shared/types/pagination.types.js';
+import type { PaginationQuery } from '@/shared/types/pagination.types.js';
 
 //Nombre de la colección en Firestore
 const COLLECTION = 'tasks';

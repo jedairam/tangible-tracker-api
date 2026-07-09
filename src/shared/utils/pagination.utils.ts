@@ -1,5 +1,5 @@
 import type { CollectionReference, DocumentData } from 'firebase-admin/firestore';
-import type { PaginatedResult, PaginationQuery } from '../types/pagination.types.js';
+import type { PaginatedResult, PaginationQuery } from '@/shared/types/pagination.types.js';
 
 export async function paginateByCreatedAt<T>(
   collection: CollectionReference,

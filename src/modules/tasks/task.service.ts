@@ -1,7 +1,7 @@
-import { NotFoundError } from '../../shared/errors/not-found.error.js';
-import type { PaginatedResult, PaginationQuery } from '../../shared/types/pagination.types.js';
-import { LOG_ACTIONS } from '../logs/log.model.js';
-import type { LogService } from '../logs/log.service.js';
+import { NotFoundError } from '@/shared/errors/not-found.error.js';
+import type { PaginatedResult, PaginationQuery } from '@/shared/types/pagination.types.js';
+import { LOG_ACTIONS } from '@/modules/logs/log.model.js';
+import type { LogService } from '@/modules/logs/log.service.js';
 import type { CreateTaskDto, UpdateTaskDto } from './task.dto.js';
 import { TASK_STATUS_LABELS, type Task } from './task.model.js';
 import type { TaskRepository } from './task.repository.js';
