@@ -1,9 +1,11 @@
 import { FieldValue, Timestamp, type DocumentData } from 'firebase-admin/firestore';
 import { getFirestore } from '../../config/firebase.js';
+import { paginateByCreatedAt } from '../../shared/utils/pagination.utils.js';
 import { toDate } from '../../shared/utils/date.utils.js';
 import type { CreateTaskDto, UpdateTaskDto } from './task.dto.js';
 import type { Task, TaskPriority, TaskStatus } from './task.model.js';
 import type { TaskRepository } from './task.repository.js';
+import type { PaginationQuery } from '../../shared/types/pagination.types.js';
 
 //Nombre de la colección en Firestore
 const COLLECTION = 'tasks';
@@ -26,10 +28,9 @@ export class FirebaseTaskRepository implements TaskRepository {
     return getFirestore().collection(COLLECTION);
   }
 
-  //Obtener todas las tareas ordenadas por fecha de creación
-  async findAll(): Promise<Task[]> {
-    const snapshot = await this.collection.orderBy('createdAt', 'desc').get();
-    return snapshot.docs.map((doc) => docToTask(doc.id, doc.data()));
+  //Obtener tareas paginadas ordenadas por fecha de creación
+  async findAll(pagination: PaginationQuery) {
+    return paginateByCreatedAt(this.collection, docToTask, pagination);
   }
 
   //Obtener una tarea por su ID

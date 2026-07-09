@@ -1,4 +1,5 @@
 import { NotFoundError } from '../../shared/errors/not-found.error.js';
+import type { PaginatedResult, PaginationQuery } from '../../shared/types/pagination.types.js';
 import { LOG_ACTIONS } from '../logs/log.model.js';
 import type { LogService } from '../logs/log.service.js';
 import type { CreateTaskDto, UpdateTaskDto } from './task.dto.js';
@@ -26,9 +27,9 @@ export class TaskService {
     return task;
   }
 
-  //Obtener todas las tareas
-  async findAll(): Promise<Task[]> {
-    return this.taskRepository.findAll();
+  //Obtener tareas paginadas
+  async findAll(pagination: PaginationQuery): Promise<PaginatedResult<Task>> {
+    return this.taskRepository.findAll(pagination);
   }
 
   //Obtener una tarea por su ID

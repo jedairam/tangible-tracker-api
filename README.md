@@ -45,6 +45,18 @@ API REST para la gestión interna de tareas e incidencias del equipo de desarrol
   - `client_email`
   - `private_key`
 
+### Índices de Firestore
+
+El proyecto incluye `firestore.indexes.json` con índices explícitos en `createdAt` para `tasks` y `logs` (paginación ordenada).
+
+Para desplegarlos (requiere [Firebase CLI](https://firebase.google.com/docs/cli)):
+
+```bash
+firebase deploy --only firestore:indexes
+```
+
+> Firestore también crea índices simples automáticamente; el archivo documenta y versiona la configuración explícita.
+
 > El backend usa **Firebase Admin SDK**. No es necesario registrar una app web en Firebase para este setup.
 
 ---
@@ -147,7 +159,7 @@ Todas las respuestas JSON usan un **envelope estandarizado**:
 ```json
 // Éxito — recurso o lista
 { "success": true, "data": { ... } }
-{ "success": true, "data": [ ... ], "meta": { "total": 5 } }
+{ "success": true, "data": [ ... ], "meta": { "total": 25, "page": 1, "limit": 20, "totalPages": 2, "hasNext": true, "hasPrev": false } }
 
 // Éxito — eliminación
 { "success": true, "data": null, "message": "Tarea eliminada" }
@@ -241,13 +253,35 @@ curl -X POST http://localhost:3000/api/tasks \
 
 ### `GET /api/tasks`
 
-Lista todas las tareas, ordenadas por `createdAt` descendente.
+Lista tareas **paginadas**, ordenadas por `createdAt` descendente.
+
+**Query params:**
+
+| Param | Default | Máx | Descripción |
+|-------|---------|-----|-------------|
+| `page` | `1` | — | Número de página |
+| `limit` | `20` | `100` | Elementos por página |
 
 ```bash
-curl http://localhost:3000/api/tasks
+curl "http://localhost:3000/api/tasks?page=1&limit=20"
 ```
 
-**Respuesta 200:** `{ "success": true, "data": [ ...Task ], "meta": { "total": N } }`.
+**Respuesta 200:**
+
+```json
+{
+  "success": true,
+  "data": [ "...Task" ],
+  "meta": {
+    "total": 25,
+    "page": 1,
+    "limit": 20,
+    "totalPages": 2,
+    "hasNext": true,
+    "hasPrev": false
+  }
+}
+```
 
 ---
 
@@ -303,10 +337,10 @@ curl -X DELETE http://localhost:3000/api/tasks/{id}
 
 ### `GET /api/logs`
 
-Historial de actividad de todas las operaciones sobre tareas.
+Historial de actividad paginado (mismos query params `page` y `limit` que tasks).
 
 ```bash
-curl http://localhost:3000/api/logs
+curl "http://localhost:3000/api/logs?page=1&limit=20"
 ```
 
 **Respuesta 200:**
@@ -323,7 +357,14 @@ curl http://localhost:3000/api/logs
       "createdAt": "2026-07-09T06:13:48.502Z"
     }
   ],
-  "meta": { "total": 1 }
+  "meta": {
+    "total": 1,
+    "page": 1,
+    "limit": 20,
+    "totalPages": 1,
+    "hasNext": false,
+    "hasPrev": false
+  }
 }
 ```
 
@@ -417,8 +458,8 @@ Todas las respuestas de error siguen el mismo formato:
 Para el panel de actividad en React:
 
 ```javascript
-// Carga inicial
-const { data: logs } = await fetch('http://localhost:3000/api/logs').then((r) => r.json());
+// Carga inicial (paginada)
+const { data: logs } = await fetch('http://localhost:3000/api/logs?page=1&limit=50').then((r) => r.json());
 
 // Conexión en tiempo real
 const source = new EventSource('http://localhost:3000/api/logs/stream');

@@ -1,4 +1,5 @@
 import type { Response } from 'express';
+import type { PaginatedResult, PaginationQuery } from '../../shared/types/pagination.types.js';
 import { emitLogCreated, LOG_CREATED_EVENT, logEvents } from './log.events.js';
 import type { CreateLogDto } from './log.dto.js';
 import type { Log } from './log.model.js';
@@ -8,9 +9,9 @@ import type { LogRepository } from './log.repository.js';
 export class LogService {
   constructor(private readonly logRepository: LogRepository) {}
 
-  //Obtener todos los logs
-  async findAll(): Promise<Log[]> {
-    return this.logRepository.findAll();
+  //Obtener logs paginados
+  async findAll(pagination: PaginationQuery): Promise<PaginatedResult<Log>> {
+    return this.logRepository.findAll(pagination);
   }
 
   //Crear un nuevo log

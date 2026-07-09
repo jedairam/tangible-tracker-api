@@ -1,9 +1,11 @@
 import { FieldValue, Timestamp, type DocumentData } from 'firebase-admin/firestore';
 import { getFirestore } from '../../config/firebase.js';
+import { paginateByCreatedAt } from '../../shared/utils/pagination.utils.js';
 import { toDate } from '../../shared/utils/date.utils.js';
 import type { CreateLogDto } from './log.dto.js';
 import type { Log } from './log.model.js';
 import type { LogRepository } from './log.repository.js';
+import type { PaginationQuery } from '../../shared/types/pagination.types.js';
 
 //Nombre de la colección en Firestore
 const COLLECTION = 'logs';
@@ -24,10 +26,9 @@ export class FirebaseLogRepository implements LogRepository {
     return getFirestore().collection(COLLECTION);
   }
 
-  //Obtener todos los logs ordenados por fecha de creación
-  async findAll(): Promise<Log[]> {
-    const snapshot = await this.collection.orderBy('createdAt', 'desc').get();
-    return snapshot.docs.map((doc) => docToLog(doc.id, doc.data()));
+  //Obtener logs paginados ordenados por fecha de creación
+  async findAll(pagination: PaginationQuery) {
+    return paginateByCreatedAt(this.collection, docToLog, pagination);
   }
 
   //Crear un nuevo log

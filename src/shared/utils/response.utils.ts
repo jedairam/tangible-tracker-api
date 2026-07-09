@@ -1,5 +1,6 @@
 import type { Response } from 'express';
 import type { ApiMeta, ApiSuccessResponse } from '../types/api-response.types.js';
+import type { PaginatedResult } from '../types/pagination.types.js';
 
 //Contrato estándar para las respuestas de la API
 
@@ -23,7 +24,12 @@ export function sendSuccess<T>(
   res.status(statusCode).json(body);
 }
 
-//Enviar una lista de recursos
+//Enviar una lista paginada de recursos
+export function sendPaginatedList<T>(res: Response, result: PaginatedResult<T>): void {
+  sendSuccess(res, result.items, 200, { meta: result.meta });
+}
+
+//Enviar una lista de recursos (sin paginación)
 export function sendList<T>(res: Response, data: T[]): void {
   sendSuccess(res, data, 200, { meta: { total: data.length } });
 }
