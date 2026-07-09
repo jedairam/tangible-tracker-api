@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { checkFirestoreConnection } from '../../config/firebase.js';
 import { env } from '../../config/env.js';
+import { sendSuccess } from '../../shared/utils/response.utils.js';
 
 export const healthRoutes = Router();
 
-// GET /health — Verifica el estado del servidor y la conexión con Firestore
 healthRoutes.get('/health', async (_req, res) => {
   const databaseConnected = await checkFirestoreConnection();
 
@@ -16,5 +16,5 @@ healthRoutes.get('/health', async (_req, res) => {
     database: databaseConnected ? 'connected' : 'disconnected',
   };
 
-  res.status(databaseConnected ? 200 : 503).json(payload);
+  sendSuccess(res, payload, databaseConnected ? 200 : 503);
 });
