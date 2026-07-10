@@ -36,6 +36,7 @@ Los prompts siguieron un patrón repetible en lugar de pedir “toda la API de u
 | **Users**      | *"Extiende el API con* `users/` *— CRUD paginado, email único normalizado, sin password. Luego añade* `assignedUserId` *opcional en tareas y valida que el usuario exista antes de crear o actualizar. El service de tasks puede depender del de users; users no debe depender de tasks."*                                      | Equipo + asignación        |
 | **Security**   | *"Endurece el API para entrega local: CORS allowlist solo* `localhost`*, rate limit de 100 req/s en* `/api/`**, body JSON máximo 100 KB, Helmet ya activo. No implementes JWT — está fuera del alcance de la prueba. Documenta en README."*                                                                                     | Protección sin auth        |
 | **Tests**      | *"Agrega tests unitarios con Vitest en* `test/unit/`*, mocks de Firestore sin conexión real, factories en* `test/helpers/`*, y* `tsconfig.test.json` *separado del build de producción. Cubre services, repositories mock, middlewares, env y schemas. Objetivo: suite verde con* `yarn test` *sin levantar servidor."*         | 81 tests unitarios         |
+| **Tests (env)** | *"No hardcodees variables de entorno en los specs. Crea* `.env.test` *con valores ficticios, un helper* `loadTestEnv()` *que las importe con dotenv sin mutar* `process.env`*, y plantilla* `.env.test.example` *para quien clone el repo."*                                                                                  | Secretos fuera del código  |
 | **Docs**       | *"Reescribe el README principal al estilo del frontend: arquitectura, módulos, scripts, testing, endpoints resumidos y referencia a* `openapi.yaml`*. Añade* `.env.test.example` *para la plantilla de Vitest."*                                                                                                                | Documentación de entrega   |
 
 
@@ -45,7 +46,7 @@ Los prompts siguieron un patrón repetible en lugar de pedir “toda la API de u
 
 ## 2. Análisis de Errores / Alucinaciones
 
-Documento **cinco casos** donde el código generado por la IA tuvo fallas de lógica, arquitectura o suposiciones incorrectas.
+Documento **seis casos** donde el código generado por la IA tuvo fallas de lógica, arquitectura, seguridad o suposiciones incorrectas.
 
 ### Caso A — Códigos `TAN-N`: fallbacks legacy en runtime (lógica)
 
@@ -254,6 +255,51 @@ export class LogService {
 
 ---
 
+### Caso F — Tests: variables de entorno hardcodeadas en el spec (seguridad)
+
+**Contexto:** Al añadir cobertura de `env.schema.ts`, el test debía validar que Zod parsea correctamente `PORT`, `CORS_ORIGIN` y las tres variables de Firebase. La convención del proyecto ya exigía secretos en `.env` (gitignored) y plantilla en `.env.example` — nunca en código fuente.
+
+**Lo que propuso la IA** en `test/unit/config/env.schema.test.ts`:
+
+- Objeto `validEnv` **inline en el archivo de test** con `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL` y un bloque `FIREBASE_PRIVATE_KEY` completo (formato PEM) escrito como string literal.
+- A veces `dotenv.config({ path: '.env.test' })` en `vitest.config.ts` o en `test/setup.ts`, **mutando** `process.env` global para toda la suite.
+- Duplicar el mismo PEM ficticio en varios `it()` en lugar de una sola fuente de verdad.
+
+**Por qué falla:**
+
+
+| Problema | Detalle |
+| -------- | ------- |
+| **Superficie de fuga de secretos** | Un PEM en TypeScript parece “solo test”, pero es el mismo formato que credenciales reales; un reemplazo accidental por valores de desarrollo puede commitearse sin notarlo en un diff ruidoso. |
+| **Inconsistencia con el proyecto** | El API ya separa config en `.env` + `env.schema.ts`; hardcodear en tests rompe la regla “secretos fuera del repo”. |
+| **`process.env` global contaminado** | Cargar dotenv en setup global hace que otros tests dependan del orden de ejecución o hereden variables que no declararon. |
+| **Mantenimiento frágil** | Si `env.schema.ts` añade un campo obligatorio, hay que buscar strings PEM repartidos en specs en lugar de actualizar un solo `.env.test`. |
+
+
+Fragmento de la propuesta rechazada:
+
+```typescript
+// env.schema.test.ts — propuesta IA (eliminada)
+const validEnv = {
+  PORT: '3000',
+  NODE_ENV: 'development',
+  CORS_ORIGIN: 'http://localhost:5173',
+  FIREBASE_PROJECT_ID: 'tangible-tracker-test',
+  FIREBASE_CLIENT_EMAIL: 'firebase-adminsdk@test.iam.gserviceaccount.com',
+  FIREBASE_PRIVATE_KEY:
+    '-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----\n',
+}
+
+it('parsea variables válidas', () => {
+  const result = envSchema.parse(validEnv)
+  expect(result.FIREBASE_PRIVATE_KEY).toContain('\n')
+})
+```
+
+**Tipo de error:** atajo de testing — la IA priorizó “que el test compile rápido” en lugar de **tratar las variables de entorno como configuración externa**, igual que en runtime.
+
+---
+
 ## 3. Resolución Técnica
 
 Para cada falla: **cómo la detecté** y **qué ajusté manualmente**.
@@ -413,6 +459,47 @@ async create(data: CreateLogDto): Promise<Log> {
 
 ---
 
+### Caso F — `.env.test` + `loadTestEnv()` en lugar de strings en el spec
+
+
+| Detección | Ajuste manual |
+| --------- | ------------- |
+| Revisión de `env.schema.test.ts`: el PEM y el email de Firebase vivían como literales en el spec. Indiqué explícitamente: *“no hardcodees las variables; crea* `.env.test` *e impórtalas desde ahí”*. | Creé **`.env.test.example`** (plantilla en git) y **`.env.test`** (copia local con valores ficticios). Añadí **`test/helpers/load-test-env.ts`**, que lee `.env.test` con `dotenv` y `processEnv: {}` para **no mutar** `process.env`. El spec usa `const validEnv = loadTestEnv()` y solo muta campos en casos negativos (`CORS` inválido, falta `FIREBASE_PROJECT_ID`). Documenté en `test/README.md` y en el README principal el flujo `cp .env.test.example .env.test`. |
+
+
+Helper final:
+
+```typescript
+// test/helpers/load-test-env.ts
+export function loadTestEnv(): Record<string, string> {
+  const { parsed, error } = config({
+    path: path.join(rootDir, '.env.test'),
+    processEnv: {}, // no contamina process.env global
+  })
+  if (error) throw error
+  if (!parsed) throw new Error('No se pudo leer .env.test')
+  return parsed as Record<string, string>
+}
+```
+
+Uso en el test:
+
+```typescript
+// env.schema.test.ts
+import { loadTestEnv } from '../../helpers/load-test-env.js'
+
+const validEnv = loadTestEnv()
+
+it('parsea variables válidas desde .env.test', () => {
+  const result = envSchema.parse(validEnv)
+  expect(result.FIREBASE_PROJECT_ID).toBe(validEnv.FIREBASE_PROJECT_ID)
+})
+```
+
+**Prompt de corrección (texto del desarrollador):** *“No para las .env en* `env.schema.test.ts` *— crea un* `.env.test` *e importa desde ahí; no hardcodees las variables en código.”*
+
+---
+
 ### Correcciones adicionales hechas manualmente (sin depender ciegamente de la IA)
 
 - **Wiring de dependencias** — `TaskService` recibe `UserService` solo para validar assignee; evité imports circulares entre routes exportando singletons con cuidado.
@@ -423,7 +510,7 @@ async create(data: CreateLogDto): Promise<Log> {
 
 ### Criterio aplicado
 
-La IA aceleró el scaffold, los repositories Firestore y el volumen de tests, pero falló de forma sistemática en **compatibilidad inventada** (códigos legacy), **copiar el patrón Zod/POST de tasks en logs**, **duplicar utilidades** en `shared/`, **concentrar schemas en** `config/`, y **monolitizar** `logs/` **sin seguir el patrón routes → service → repository** ya fijado en tasks Modulo principal. Cada entrega pasó por `yarn test && yarn build`, revisión de capas por módulo y, cuando aplicaba, curls contra el servidor real antes de aceptar el diff.
+La IA aceleró el scaffold, los repositories Firestore y el volumen de tests, pero falló de forma sistemática en **compatibilidad inventada** (códigos legacy), **copiar el patrón Zod/POST de tasks en logs**, **duplicar utilidades** en `shared/`, **concentrar schemas en** `config/`, **monolitizar** `logs/` **sin seguir el patrón routes → service → repository** ya fijado en tasks, y **embeber secretos ficticios en specs** en lugar de cargarlos desde `.env.test`. Cada entrega pasó por `yarn test && yarn build`, revisión de capas por módulo y, cuando aplicaba, curls contra el servidor real antes de aceptar el diff.
 
 ---
 
