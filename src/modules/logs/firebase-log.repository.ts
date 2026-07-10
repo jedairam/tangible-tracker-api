@@ -14,6 +14,7 @@ function docToLog(id: string, data: DocumentData): Log {
   return {
     id,
     taskId: data.taskId as string,
+    taskCode: data.taskCode as string,
     action: data.action as string,
     detail: data.detail as string,
     createdAt: toDate(data.createdAt as Timestamp | Date | undefined),
@@ -35,6 +36,7 @@ export class FirebaseLogRepository implements LogRepository {
   async create(data: CreateLogDto): Promise<Log> {
     const docRef = await this.collection.add({
       taskId: data.taskId,
+      taskCode: data.taskCode,
       action: data.action,
       detail: data.detail,
       createdAt: FieldValue.serverTimestamp(),

@@ -11,5 +11,16 @@ export const envSchema = z.object({
     .string()
     .min(1)
     .transform((key) => key.replace(/\\n/g, '\n')),
+  CORS_ORIGIN: z
+    .string()
+    .url('CORS_ORIGIN debe ser una URL válida')
+    .default('http://localhost:5173')
+    .refine(
+      (url) => {
+        const { hostname } = new URL(url);
+        return hostname === 'localhost' || hostname === '127.0.0.1';
+      },
+      { message: 'CORS_ORIGIN debe apuntar a localhost o 127.0.0.1' },
+    ),
 });
 

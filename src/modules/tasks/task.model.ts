@@ -17,10 +17,12 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
 
 export interface Task {
   id: string;
+  code: string;
   title: string;
   description: string;
   status: TaskStatus;
   priority: TaskPriority;
+  assignedUserId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -5,6 +5,7 @@ export interface CreateTaskDto {
   description: string;
   status: TaskStatus;
   priority: TaskPriority;
+  assignedUserId?: string | null | undefined;
 }
 
 export interface UpdateTaskDto {
@@ -12,4 +13,5 @@ export interface UpdateTaskDto {
   description?: string | undefined;
   status?: TaskStatus | undefined;
   priority?: TaskPriority | undefined;
+  assignedUserId?: string | null | undefined;
 }

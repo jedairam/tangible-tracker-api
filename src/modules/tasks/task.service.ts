@@ -1,7 +1,9 @@
 import { NotFoundError } from '@/shared/errors/not-found.error.js';
+import { ValidationError } from '@/shared/errors/validation.error.js';
 import type { PaginatedResult, PaginationQuery } from '@/shared/types/pagination.types.js';
 import { LOG_ACTIONS } from '@/modules/logs/log.model.js';
 import type { LogService } from '@/modules/logs/log.service.js';
+import type { UserService } from '@/modules/users/user.service.js';
 import type { CreateTaskDto, UpdateTaskDto } from './task.dto.js';
 import { TASK_STATUS_LABELS, type Task } from './task.model.js';
 import type { TaskRepository } from './task.repository.js';
@@ -11,15 +13,34 @@ export class TaskService {
   constructor(
     private readonly taskRepository: TaskRepository,
     private readonly logService: LogService,
+    private readonly userService: UserService,
   ) {}
+
+  private async assertAssignedUserExists(assignedUserId: string | null | undefined): Promise<void> {
+    if (assignedUserId === undefined || assignedUserId === null) {
+      return;
+    }
+
+    try {
+      await this.userService.findById(assignedUserId);
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw new ValidationError('Usuario asignado no encontrado');
+      }
+
+      throw error;
+    }
+  }
 
   //Crear una nueva tarea
   async create(data: CreateTaskDto): Promise<Task> {
+    await this.assertAssignedUserExists(data.assignedUserId);
     const task = await this.taskRepository.create(data);
 
     //Registrar el log de la creación de la tarea
     await this.logService.create({
       taskId: task.id,
+      taskCode: task.code,
       action: LOG_ACTIONS.TASK_CREATED,
       detail: `Tarea "${task.title}" creada`,
     });
@@ -51,12 +72,14 @@ export class TaskService {
       throw new NotFoundError('Tarea no encontrada');
     }
 
+    await this.assertAssignedUserExists(data.assignedUserId);
     const task = await this.taskRepository.update(id, data);
 
     //Registrar el log del cambio de estado
     if (data.status !== undefined && data.status !== existing.status) {
       await this.logService.create({
         taskId: task.id,
+        taskCode: task.code,
         action: LOG_ACTIONS.STATUS_CHANGED,
         detail: `Estado cambiado de ${TASK_STATUS_LABELS[existing.status]} a ${TASK_STATUS_LABELS[task.status]}`,
       });
@@ -64,6 +87,7 @@ export class TaskService {
       //Registrar el log de la actualización de la tarea
       await this.logService.create({
         taskId: task.id,
+        taskCode: task.code,
         action: LOG_ACTIONS.TASK_UPDATED,
         detail: `Tarea "${task.title}" actualizada`,
       });
@@ -85,6 +109,7 @@ export class TaskService {
     //Registrar el log de la eliminación de la tarea
     await this.logService.create({
       taskId: id,
+      taskCode: existing.code,
       action: LOG_ACTIONS.TASK_DELETED,
       detail: `Tarea "${existing.title}" eliminada`,
     });

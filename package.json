@@ -7,13 +7,16 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start:dev": "tsx watch src/server.ts",
-    "build": "tsc && tsc-alias -p tsconfig.json",
-    "start": "node dist/server.js"
+    "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.5.2",
     "firebase-admin": "^14.1.0",
     "helmet": "^8.2.0",
     "morgan": "^1.11.0",
@@ -26,6 +29,7 @@
     "@types/node": "^26.1.1",
     "tsc-alias": "^1.9.0",
     "tsx": "^4.23.0",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^3.2.4"
   }
 }

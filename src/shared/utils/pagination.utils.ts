@@ -12,7 +12,7 @@ export async function paginateByCreatedAt<T>(
   const orderedQuery = collection.orderBy('createdAt', 'desc');
 
   const [countSnapshot, pageSnapshot] = await Promise.all([
-    collection.count().get(),
+    orderedQuery.count().get(),
     orderedQuery.offset(offset).limit(limit + 1).get(),
   ]);
 
