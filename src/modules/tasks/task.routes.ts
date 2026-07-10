@@ -3,6 +3,7 @@ import { validateMiddleware } from '@/middlewares/validate.middleware.js';
 import { parsePaginationQuery } from '@/shared/schemas/pagination.schema.js';
 import { sendPaginatedList, sendSuccess } from '@/shared/utils/response.utils.js';
 import { logService } from '@/modules/logs/log.routes.js';
+import { userService } from '@/modules/users/user.routes.js';
 import { FirebaseTaskRepository } from './firebase-task.repository.js';
 import { TaskService } from './task.service.js';
 import {
@@ -13,20 +14,23 @@ import {
   type UpdateTaskInput,
 } from './task.schema.js';
 
-const taskService = new TaskService(new FirebaseTaskRepository(), logService);
+const taskService = new TaskService(new FirebaseTaskRepository(), logService, userService);
 
 export const taskRoutes = Router();
 
+//Crear una nueva tarea
 taskRoutes.post('/tasks', validateMiddleware(createTaskSchema), async (req: Request, res: Response) => {
   const task = await taskService.create(req.body as CreateTaskInput);
   sendSuccess(res, task, 201);
 });
 
+//Obtener todas las tareas paginadas ordenadas por fecha de creación
 taskRoutes.get('/tasks', async (req: Request, res: Response) => {
   const result = await taskService.findAll(parsePaginationQuery(req.query));
   sendPaginatedList(res, result);
 });
 
+//Obtener una tarea por su ID
 taskRoutes.get(
   '/tasks/:id',
   validateMiddleware(taskIdParamSchema, 'params'),
@@ -36,6 +40,7 @@ taskRoutes.get(
   },
 );
 
+//Actualizar una tarea
 taskRoutes.patch(
   '/tasks/:id',
   validateMiddleware(taskIdParamSchema, 'params'),
@@ -46,6 +51,7 @@ taskRoutes.patch(
   },
 );
 
+//Eliminar una tarea
 taskRoutes.delete(
   '/tasks/:id',
   validateMiddleware(taskIdParamSchema, 'params'),

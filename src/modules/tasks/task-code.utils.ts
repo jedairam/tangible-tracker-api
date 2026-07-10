@@ -1,30 +1,15 @@
 import type { CollectionReference } from 'firebase-admin/firestore';
 
 export const TASK_CODE_PREFIX = 'TAN';
+export const TASK_COUNTER_DOC_ID = '_counter';
 
 export function formatTaskCode(sequence: number): string {
   return `${TASK_CODE_PREFIX}-${sequence}`;
 }
 
-/** Fallback para tareas legacy sin campo `code` guardado */
-export function legacyTaskCodeFromId(id: string): string {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = (hash + id.charCodeAt(i) * (i + 1)) % 1000;
-  }
-  return `${TASK_CODE_PREFIX}-${100 + (hash % 900)}`;
-}
-
-export function resolveTaskCode(id: string, code?: string): string {
-  if (id === '_counter') {
-    return '';
-  }
-  return code ?? legacyTaskCodeFromId(id);
-}
-
 /** Contador interno en `tasks/_counter` (misma colección, no es una tarea) */
 export async function nextTaskCode(tasksCollection: CollectionReference): Promise<string> {
-  const counterRef = tasksCollection.doc('_counter');
+  const counterRef = tasksCollection.doc(TASK_COUNTER_DOC_ID);
 
   const sequence = await tasksCollection.firestore.runTransaction(async (transaction) => {
     const counterDoc = await transaction.get(counterRef);

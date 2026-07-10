@@ -1,6 +1,6 @@
 export interface CreateLogDto {
   taskId: string;
-  taskCode?: string;
+  taskCode: string;
   action: string;
   detail: string;
 }

@@ -22,6 +22,7 @@ export interface Task {
   description: string;
   status: TaskStatus;
   priority: TaskPriority;
+  assignedUserId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
