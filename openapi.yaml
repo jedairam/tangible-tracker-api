@@ -2,13 +2,18 @@ openapi: 3.0.3
 info:
   title: Tangible Tracker API
   description: |
-    API REST para la gestión interna de tareas del equipo de desarrollo.
+    API REST para la gestión interna de tareas e incidencias del equipo de desarrollo.
     Backend construido con Node.js, Express, TypeScript y Firebase Firestore.
+
+    ## Módulos
+    - **Tasks** — CRUD de tareas con asignación opcional a usuarios
+    - **Users** — CRUD de usuarios del equipo (sin autenticación)
+    - **Logs** — Historial de actividad y stream en tiempo real
 
     ## Tiempo real
     El endpoint `GET /api/logs/stream` usa Server-Sent Events (SSE).
     En el frontend, conéctate con `EventSource`.
-  version: 1.0.0
+  version: 1.1.0
   contact:
     name: Tangible Immersive
 
@@ -21,6 +26,8 @@ tags:
     description: Estado del servidor y conexión a Firestore
   - name: Tasks
     description: CRUD de tareas e incidencias
+  - name: Users
+    description: CRUD de usuarios del equipo (asignables a tareas)
   - name: Logs
     description: Historial de actividad y stream en tiempo real
 
@@ -85,6 +92,7 @@ paths:
       description: |
         Crea una nueva tarea. Registra automáticamente un log de actividad.
         Si no se envían `status` o `priority`, se usan `pending` y `medium`.
+        Opcionalmente puedes asignar un usuario existente con `assignedUserId`.
       operationId: createTask
       requestBody:
         required: true
@@ -97,6 +105,7 @@ paths:
               description: Error al iniciar sesión en producción
               status: pending
               priority: high
+              assignedUserId: rL78DWAccy74Z3xYEOxN
       responses:
         '201':
           description: Tarea creada
@@ -105,7 +114,26 @@ paths:
               schema:
                 $ref: '#/components/schemas/TaskSuccessResponse'
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: Validación fallida o usuario asignado inexistente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                validacion:
+                  summary: Campo inválido
+                  value:
+                    success: false
+                    error:
+                      statusCode: 400
+                      message: El título es obligatorio
+                usuarioInvalido:
+                  summary: Usuario asignado no encontrado
+                  value:
+                    success: false
+                    error:
+                      statusCode: 400
+                      message: Usuario asignado no encontrado
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -135,6 +163,7 @@ paths:
       description: |
         Actualización parcial (PATCH). Al menos un campo es obligatorio.
         Registra log de actividad. Si cambia `status`, el log indica "Estado cambiado".
+        Envía `assignedUserId: null` para desasignar la tarea.
       operationId: updateTask
       requestBody:
         required: true
@@ -151,6 +180,10 @@ paths:
                 summary: Actualizar título
                 value:
                   title: Incidencia login (en revisión)
+              desasignar:
+                summary: Desasignar usuario
+                value:
+                  assignedUserId: null
       responses:
         '200':
           description: Tarea actualizada
@@ -182,6 +215,171 @@ paths:
                 message: Tarea eliminada
         '404':
           $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/users:
+    get:
+      tags: [Users]
+      summary: Listar usuarios
+      description: |
+        Obtiene usuarios paginados ordenados por fecha de creación (más reciente primero).
+        Query params: `page` (default 1), `limit` (default 20, máx 100).
+      operationId: listUsers
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Lista de usuarios
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListSuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [Users]
+      summary: Crear usuario
+      description: |
+        Crea un usuario del equipo. El email se normaliza a minúsculas y debe ser único.
+        No incluye password (sin autenticación en esta versión).
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+            example:
+              firstName: Juan
+              lastName: Pérez
+              email: juan@empresa.com
+      responses:
+        '201':
+          description: Usuario creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSuccessResponse'
+        '400':
+          description: Validación fallida o email duplicado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                validacion:
+                  summary: Campo inválido
+                  value:
+                    success: false
+                    error:
+                      statusCode: 400
+                      message: El email no es válido
+                duplicado:
+                  summary: Email ya registrado
+                  value:
+                    success: false
+                    error:
+                      statusCode: 400
+                      message: El email ya está registrado
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/users/{id}:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [Users]
+      summary: Obtener usuario por ID
+      operationId: getUserById
+      responses:
+        '200':
+          description: Usuario encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSuccessResponse'
+        '404':
+          description: Usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error:
+                  statusCode: 404
+                  message: Usuario no encontrado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      tags: [Users]
+      summary: Actualizar usuario
+      description: Actualización parcial (PATCH). Al menos un campo es obligatorio.
+      operationId: updateUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+            example:
+              firstName: Juan Carlos
+      responses:
+        '200':
+          description: Usuario actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: Usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error:
+                  statusCode: 404
+                  message: Usuario no encontrado
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags: [Users]
+      summary: Eliminar usuario
+      operationId: deleteUser
+      responses:
+        '200':
+          description: Usuario eliminado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteSuccessResponse'
+              example:
+                success: true
+                data: null
+                message: Usuario eliminado
+        '404':
+          description: Usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error:
+                  statusCode: 404
+                  message: Usuario no encontrado
         '400':
           $ref: '#/components/responses/BadRequest'
         '500':
@@ -258,6 +456,15 @@ components:
         type: string
         minLength: 1
       example: tjrcxKTo3Lc1C7JSarJd
+    UserId:
+      name: id
+      in: path
+      required: true
+      description: Identificador del usuario en Firestore
+      schema:
+        type: string
+        minLength: 1
+      example: rL78DWAccy74Z3xYEOxN
     Page:
       name: page
       in: query
@@ -383,6 +590,30 @@ components:
         meta:
           $ref: '#/components/schemas/ApiMeta'
 
+    UserSuccessResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: '#/components/schemas/User'
+
+    UserListSuccessResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        meta:
+          $ref: '#/components/schemas/ApiMeta'
+
     LogListSuccessResponse:
       type: object
       required: [success, data]
@@ -415,6 +646,7 @@ components:
           type: boolean
           enum: [true]
         data:
+          type: object
           nullable: true
           example: null
         message:
@@ -462,7 +694,7 @@ components:
 
     Task:
       type: object
-      required: [id, code, title, description, status, priority, createdAt, updatedAt]
+      required: [id, code, title, description, status, priority, assignedUserId, createdAt, updatedAt]
       properties:
         id:
           type: string
@@ -481,12 +713,73 @@ components:
           $ref: '#/components/schemas/TaskStatus'
         priority:
           $ref: '#/components/schemas/TaskPriority'
+        assignedUserId:
+          type: string
+          nullable: true
+          description: ID del usuario asignado, o `null` si no hay asignación
+          example: rL78DWAccy74Z3xYEOxN
         createdAt:
           type: string
           format: date-time
         updatedAt:
           type: string
           format: date-time
+
+    User:
+      type: object
+      required: [id, firstName, lastName, email, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          example: rL78DWAccy74Z3xYEOxN
+        firstName:
+          type: string
+          example: Juan
+        lastName:
+          type: string
+          example: Pérez
+        email:
+          type: string
+          format: email
+          description: Email normalizado a minúsculas, único en el sistema
+          example: juan@empresa.com
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateUserRequest:
+      type: object
+      required: [firstName, lastName, email]
+      properties:
+        firstName:
+          type: string
+          minLength: 1
+          example: Juan
+        lastName:
+          type: string
+          minLength: 1
+          example: Pérez
+        email:
+          type: string
+          format: email
+          example: juan@empresa.com
+
+    UpdateUserRequest:
+      type: object
+      minProperties: 1
+      properties:
+        firstName:
+          type: string
+          minLength: 1
+        lastName:
+          type: string
+          minLength: 1
+        email:
+          type: string
+          format: email
 
     CreateTaskRequest:
       type: object
@@ -506,6 +799,11 @@ components:
         priority:
           $ref: '#/components/schemas/TaskPriority'
           default: medium
+        assignedUserId:
+          type: string
+          nullable: true
+          description: ID de un usuario existente. Omitir o `null` para sin asignación.
+          example: rL78DWAccy74Z3xYEOxN
 
     UpdateTaskRequest:
       type: object
@@ -521,6 +819,10 @@ components:
           $ref: '#/components/schemas/TaskStatus'
         priority:
           $ref: '#/components/schemas/TaskPriority'
+        assignedUserId:
+          type: string
+          nullable: true
+          description: Asignar usuario por ID, o `null` para desasignar
 
     Log:
       type: object
