@@ -4,5 +4,7 @@ dist/
 *.log
 .DS_Store
 
-spec.md
-prueba.pdf
+.env.test
+.env.local
+.env.development
+.env.production
