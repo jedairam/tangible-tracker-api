@@ -5,7 +5,7 @@ export function metricsMiddleware(req: Request, res: Response, next: NextFunctio
 
   res.on('finish', () => {
     const duration = Math.round(performance.now() - start);
-    console.log(`[METRIC] ${req.method} ${req.originalUrl} ${duration}ms`);
+    console.log(`[METRIC] ${req.method} ${req.originalUrl} - ${duration}ms`);
   });
 
   next();
